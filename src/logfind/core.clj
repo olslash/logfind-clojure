@@ -35,18 +35,17 @@
    (str ".*" (string/join ".*" args) ".*")))
 
 (defn- in-file
-  "search a filereader for a pattern and return whether a match was found"
+  "search a filereader for a pattern and return the filename if there was a match"
   [re file]
   (boolean (re-find re (slurp file))))
 
-
 (defn -main
-   "lol"
-   ([] (print "provide one or more string params to search"))
-   ([& args]
-    (let
-      [filemask (re-pattern (string/join "|" (read-config)))
-      searchpattern (apply join-and args)]
-      (print (map (partial in-file searchpattern)
-                  (regex-file-seq
-                    filemask (files search-root)))))))
+  "search all files matching the patterns specified in ~/.logfind for the
+  strings given in args. Prints the filenames that contain matches."
+  ([] (print "provide one or more string params to search"))
+  ([& args]
+   (let [filemask (re-pattern (string/join "|" (read-config)))
+         searchpattern (apply join-and args)]
+     (doseq [file (regex-file-seq filemask (files search-root))]
+       (if (in-file searchpattern file)
+         (println (str file)))))))
