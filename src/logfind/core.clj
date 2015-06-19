@@ -2,32 +2,51 @@
   (:gen-class))
 
 (require '[clojure.string :as string])
-(def search-root "/Users/mrobb/test")
-
 (defn- user-prop
   "Returns the system property for user.<key>"
   [key]
   (System/getProperty (str "user." key)))
 
+
+(def search-root "/Users/mrobb/test")
+(def config-file  (str (user-prop "home") "/.logfind"))
+
+
 (defn- read-config
   "reads and returns the .logfind file in the user's home directory"
   []
-  (string/split-lines (slurp (str (user-prop "home") "/.logfind"))))
+  (string/split-lines (slurp config-file)))
 
 (defn files
-  "returns a list of all the files in a directory (recursive)"
+  "returns a fileseq of all the filenames in a directory"
   [dir]
   (file-seq (clojure.java.io/file dir)))
 
-(defn- find-files
-  "searches /home for files matching the provided pattern"
-  [pattern]
-  (filter (fn [x]
-            (re-find (re-pattern pattern) (str x)))
-          (files search-root)))
+; fixme-  http://stackoverflow.com/questions/13063594/how-to-filter-a-directory-listing-with-a-regular-expression-in-clojure
+(defn regex-file-seq
+  "Lazily filter a directory based on a regex."
+  [re dir]
+  (filter #(re-find re (.getPath %)) dir))
+
+(defn- join-and
+  "joins the args into a single regex that will match them all (boolean AND)"
+  [& args]
+  ( re-pattern
+   (str ".*" (string/join ".*" args) ".*")))
+
+(defn- in-file
+  "search a filereader for a pattern and return whether a match was found"
+  [re file]
+  (boolean (re-find re (slurp file))))
+
 
 (defn -main
-  "lol"
-  ([] (print "provide one or more string params to search"))
-  ([&args]
-    (print (find-files "log"))))
+   "lol"
+   ([] (print "provide one or more string params to search"))
+   ([& args]
+    (let
+      [filemask (re-pattern (string/join "|" (read-config)))
+      searchpattern (apply join-and args)]
+      (print (map (partial in-file searchpattern)
+                  (regex-file-seq
+                    filemask (files search-root)))))))
